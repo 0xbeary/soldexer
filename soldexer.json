@@ -7,12 +7,6 @@
     "password": ""
   },
   "pipes": {
-    "swaps": {
-      "fromBlock": 332557468
-    },
-    "metaplex": {
-      "fromBlock": 332557468
-    },
     "pumpfun.token-creation": {
       "fromBlock": 332557468
     },

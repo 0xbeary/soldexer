@@ -47,7 +47,6 @@ export const swapsIndexer: IndexerFunction = async (
       table: 'solana_sync_status',
       id: 'dex_swaps',
     }),
-
     logger,
   })
 

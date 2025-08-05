@@ -1,0 +1,20 @@
+{
+  "pumpfun-tokens": {
+    "description": "Track PumpFun token creation events",
+    "tags": ["solana", "pumpfun", "tokens"],
+    "category": "token-tracking",
+    "dependencies": ["@sqd-pipes/core", "@subsquid/solana-stream"]
+  },
+  "solana-swaps": {
+    "description": "Track DEX swaps across Orca, Raydium, and Meteora",
+    "tags": ["solana", "dex", "swaps"],
+    "category": "defi",
+    "dependencies": ["@sqd-pipes/core", "@subsquid/solana-stream"]
+  },
+  "metaplex-metadata": {
+    "description": "Index Metaplex NFT metadata",
+    "tags": ["solana", "nft", "metaplex"],
+    "category": "nft",
+    "dependencies": ["@sqd-pipes/core", "@subsquid/solana-stream"]
+  }
+}
