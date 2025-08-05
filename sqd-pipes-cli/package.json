@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "sqd-pipes": "./dist/index.js"
+    "sqd-pipes-test": "./dist/index.js"
   },
   "files": ["dist", "templates"],
   "scripts": {

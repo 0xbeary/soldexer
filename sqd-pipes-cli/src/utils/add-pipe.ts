@@ -13,7 +13,7 @@ export async function addPipe(pipeName: string) {
     
     if (!fs.existsSync(packageJsonPath)) {
       console.log(chalk.red('Error: Not in a valid project directory'));
-      console.log(chalk.gray('Run: sqd-pipes init'));
+      console.log(chalk.gray('Run: sqd-pipes-test init'));
       return;
     }
 
@@ -22,8 +22,9 @@ export async function addPipe(pipeName: string) {
     
     if (!fs.existsSync(templateDir)) {
       console.log(chalk.red(`Error: Pipe "${pipeName}" not found`));
-      console.log(chalk.gray('Available pipes: solana-swaps, pumpfun-tokens, pumpfun-swaps, metaplex-tokens'));
-      console.log(chalk.gray('Run: sqd-pipes list'));
+      console.log(chalk.gray('Available pipes: pumpfun-tokens'));
+      // console.log(chalk.gray('Available pipes: solana-swaps, pumpfun-tokens, pumpfun-swaps, metaplex-tokens'));
+      console.log(chalk.gray('Run: sqd-pipes-test list'));
       return;
     }
 

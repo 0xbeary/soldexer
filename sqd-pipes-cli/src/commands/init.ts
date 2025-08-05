@@ -96,7 +96,7 @@ main().catch(console.error);
     
     // Add selected pipes
     if (response.pipes && response.pipes.length > 0) {
-      console.log(chalk.gray(`  sqd-pipes add ${response.pipes.join(' ')}`));
+      console.log(chalk.gray(`  sqd-pipes-test add ${response.pipes.join(' ')}`));
     }
     
     console.log(chalk.gray('  npm start'));

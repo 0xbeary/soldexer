@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@subsquid/borsh": "^1.0.0",
+    "@subsquid/borsh": "^0.3.0",
     "@subsquid/solana-stream": "1.0.0-portal-api.da1f68"
   }
 }

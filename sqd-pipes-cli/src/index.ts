@@ -7,7 +7,7 @@ import { listCommand } from './commands/list.js';
 const program = new Command();
 
 program
-  .name('sqd-pipes')
+  .name('sqd-pipes-test')
   .description('CLI for adding Solana data pipes to your indexer')
   .version('0.1.0');
 
