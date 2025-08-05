@@ -1,7 +1,12 @@
 import { ClickHouseClient } from '@clickhouse/client';
 import { ClickhouseState } from '@sqd-pipes/core';
 import { SolanaPumpfunTokensStream, PumpfunTokenCreation } from './stream.js';
-import { logger } from './logger.js';
+import { logger } from './utils/logger.js';
+import { ensureTables } from './utils/database.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export interface PipeConfig {
   fromBlock: number;
@@ -32,7 +37,7 @@ export class PumpfunTokensPipe {
 
   async start() {
     // Create tables if they don't exist
-    await this.ensureTables();
+    await ensureTables(this.clickhouse, path.join(__dirname, 'sql/schema.sql'));
 
     logger.info('Starting PumpFun tokens pipe...');
 
