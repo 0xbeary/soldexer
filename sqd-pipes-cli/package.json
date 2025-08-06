@@ -1,6 +1,7 @@
 {
   "name": "sqd-pipes-test",
-  "version": "0.1.5",
+  "version": "0.1.6",
+  "description": "CLI for adding Solana data pipes to your indexer",
   "type": "module",
   "bin": {
     "sqd-pipes-test": "./dist/index.js"
@@ -9,17 +10,38 @@
     "dist",
     "templates"
   ],
+  "keywords": [
+    "solana",
+    "indexer",
+    "clickhouse",
+    "dex",
+    "blockchain",
+    "cli"
+  ],
+  "author": "0xbeary",
+  "license": "MIT",
+  "homepage": "https://github.com/0xbeary/soldexer#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xbeary/soldexer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/0xbeary/soldexer/issues"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "postbuild": "echo 'Build completed with executable binary'"
+    "postbuild": "echo 'Build completed with executable binary'",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "commander": "^14.0.0",
     "prompts": "^2.4.2",
     "chalk": "^5.3.0",
     "fs-extra": "^11.1.1",
-    "execa": "^9.6.0"
+    "execa": "^9.6.0",
+    "@subsquid/borsh": "^0.3.0",
+    "@subsquid/solana-stream": "1.0.0-portal-api.da1f68"
   },
   "devDependencies": {
     "@types/node": "^24.2.0",

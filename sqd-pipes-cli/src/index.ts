@@ -9,7 +9,7 @@ const program = new Command();
 program
   .name('sqd-pipes-test')
   .description('CLI for adding Solana data pipes to your indexer')
-  .version('0.1.0');
+  .version('0.1.6');
 
 program.addCommand(addCommand);
 program.addCommand(initCommand);

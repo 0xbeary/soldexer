@@ -113,7 +113,30 @@ async function updateDependencies(pipeName: string, projectDir: string) {
   await fs.writeJson(packageJsonPath, packageJson, { spaces: 2 });
   
   console.log(chalk.blue('✓ Updated package.json with new dependencies'));
-  console.log(chalk.gray('Run: npm install'));
+  
+  // Auto-install dependencies
+  try {
+    const { execa } = await import('execa');
+    console.log(chalk.gray('Installing dependencies...'));
+    
+    // Detect package manager
+    const hasYarnLock = fs.existsSync(path.join(projectDir, 'yarn.lock'));
+    const hasPnpmLock = fs.existsSync(path.join(projectDir, 'pnpm-lock.yaml'));
+    
+    let installCmd = 'npm install';
+    if (hasPnpmLock) installCmd = 'pnpm install';
+    else if (hasYarnLock) installCmd = 'yarn install';
+    
+    await execa(installCmd.split(' ')[0], installCmd.split(' ').slice(1), { 
+      cwd: projectDir,
+      stdio: 'inherit'
+    });
+    
+    console.log(chalk.green('✓ Dependencies installed successfully'));
+  } catch (error) {
+    console.log(chalk.yellow('⚠ Auto-install failed. Please run manually:'));
+    console.log(chalk.gray('npm install'));
+  }
 }
 
 function showUsageInstructions(pipeName: string) {

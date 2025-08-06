@@ -1,4 +1,4 @@
-import { logger } from '../../sqd-pipes-cli/templates/pumpfun-tokens/utils/logger'
+import { logger } from './logger'
 
 /**
  * Retries a function with exponential backoff
