@@ -2,8 +2,12 @@ import { Command } from 'commander';
 import prompts from 'prompts';
 import fs from 'fs-extra';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import { copyTemplateDirectory } from '../utils/template-processor.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const initCommand = new Command()
   .name('init')
@@ -36,8 +40,8 @@ export const initCommand = new Command()
 
     const projectDir = path.join(process.cwd(), response.projectName);
     
-    // Get the template directory path
-    const templateDir = path.join(__dirname, '../../templates/base-project');
+    // Get the template directory path - templates are in dist/templates when built
+    const templateDir = path.join(__dirname, '../templates/base-project');
     
     // Copy template files with variable substitution
     await copyTemplateDirectory(templateDir, projectDir, {

@@ -1,5 +1,5 @@
 import { defineConfig } from 'tsup'
-import { copyFileSync, mkdirSync, existsSync } from 'fs'
+import { copyFileSync, mkdirSync, existsSync, cpSync } from 'fs'
 import { join } from 'path'
 
 export default defineConfig({
@@ -18,8 +18,9 @@ export default defineConfig({
     
     // Copy templates to dist (so they're relative to the built files)
     if (existsSync('templates')) {
-      console.log('✓ Copying templates...')
-      // Templates will be copied to dist/templates by the files field in package.json
+      console.log('✓ Copying templates to dist...')
+      cpSync('templates', 'dist/templates', { recursive: true })
+      console.log('✓ Templates copied to dist/templates')
     }
   },
 })
