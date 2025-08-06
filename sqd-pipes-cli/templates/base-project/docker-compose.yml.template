@@ -1,0 +1,13 @@
+volumes:
+  clickhouse-db:
+
+services:
+  clickhouse:
+    image: bitnami/clickhouse:latest
+    container_name: {{projectName}}_clickhouse
+    ports:
+      - '8123:8123'
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    volumes:
+      - clickhouse-db:/bitnami/clickhouse

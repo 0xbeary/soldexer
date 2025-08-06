@@ -1,0 +1,40 @@
+# {{projectName}}
+
+A Solana indexer project created with sqd-pipes-test.
+
+## Quick Start
+
+1. Start ClickHouse:
+   ```bash
+   docker-compose up -d
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Add pipes:
+   ```bash
+   sqd-pipes-test add pumpfun-tokens
+   ```
+
+4. Run the indexer:
+   ```bash
+   npm start
+   ```
+
+## Development
+
+- `npm run dev` - Run in watch mode
+- `npm run build` - Build TypeScript
+- `sqd-pipes-test list` - See available pipes
+- `sqd-pipes-test add <pipe-name>` - Add a new pipe
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and configure:
+
+- `CLICKHOUSE_URL` - ClickHouse server URL
+- `CLICKHOUSE_DB` - Database name
+- `LOG_LEVEL` - Logging level (info, debug, etc.)

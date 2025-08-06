@@ -1,6 +1,6 @@
 {
   "name": "sqd-pipes-test",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "CLI for adding Solana data pipes to your indexer",
   "type": "module",
   "bin": {
