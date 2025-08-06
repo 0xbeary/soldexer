@@ -1,7 +1,7 @@
 import path from 'path';
 import { ClickHouseClient } from '@clickhouse/client';
 import { ClickhouseState } from '@sqd-pipes/core';
-import { SolanaPumpfunTokensStream, PumpfunTokenCreation } from './streams/pumpfunTokenStream';
+import { SolanaPumpfunTokensStream } from './streams/pumpfunTokenStream';
 import { logger } from './utils/logger';
 import { ensureTables } from './utils/database';
 
@@ -45,5 +45,3 @@ export const pumpfunTokenCreationIndexer = async (
     await ds.ack()
   }
 }
-
-export { PumpfunTokenCreation };

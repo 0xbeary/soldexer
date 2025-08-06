@@ -6,8 +6,8 @@ import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import { copyTemplateDirectory } from '../utils/template-processor.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
 
 export const initCommand = new Command()
   .name('init')

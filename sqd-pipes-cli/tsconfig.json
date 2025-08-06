@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "es2021",
     "module": "nodenext",           
     "moduleResolution": "nodenext", 
     "esModuleInterop": true,
@@ -9,7 +9,7 @@
     "declaration": true,
     "outDir": "dist",
     "rootDir": "src",
-    "lib": ["ES2022"]
+    "lib": ["es2021"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "templates"]
