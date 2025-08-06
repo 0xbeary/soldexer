@@ -3,7 +3,37 @@ import path from 'path';
 import chalk from 'chalk';
 import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Find the package root directory (where package.json and templates/ are located)
+function findPackageRoot(): string {
+  const currentFile = fileURLToPath(import.meta.url);
+  let dir = path.dirname(currentFile);
+  
+  // In a published package, the structure is:
+  // package-root/
+  // ├── dist/index.js (our built file)
+  // └── templates/
+  // So from dist/index.js, we need to go up one level
+  
+  // Keep going up until we find package.json with our package name
+  while (dir !== path.dirname(dir)) {
+    const packageJsonPath = path.join(dir, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        const pkg = fs.readJsonSync(packageJsonPath);
+        // Make sure it's our package
+        if (pkg.name === 'sqd-pipes-test') {
+          return dir;
+        }
+      } catch {
+        // Continue searching
+      }
+    }
+    dir = path.dirname(dir);
+  }
+  
+  // Fallback: assume we're in dist/ and go up one level
+  return path.join(path.dirname(currentFile), '..');
+}
 
 export async function addPipe(pipeName: string) {
   try {
@@ -17,11 +47,27 @@ export async function addPipe(pipeName: string) {
       return;
     }
 
-    // Template path (relative to CLI package)
-    const templateDir = path.join(__dirname, '../../templates', pipeName);
+    // Template path (find package root, then go to templates)
+    const packageRoot = findPackageRoot();
+    const templateDir = path.join(packageRoot, 'templates', pipeName);
+    
+    console.log(chalk.gray(`Debug: Package root: ${packageRoot}`));
+    console.log(chalk.gray(`Debug: Template dir: ${templateDir}`));
+    console.log(chalk.gray(`Debug: Template exists: ${fs.existsSync(templateDir)}`));
     
     if (!fs.existsSync(templateDir)) {
       console.log(chalk.red(`Error: Pipe "${pipeName}" not found`));
+      console.log(chalk.gray(`Searched in: ${templateDir}`));
+      
+      // List what's actually in the templates directory
+      const templatesRoot = path.join(packageRoot, 'templates');
+      if (fs.existsSync(templatesRoot)) {
+        const availableTemplates = fs.readdirSync(templatesRoot);
+        console.log(chalk.gray(`Available templates in ${templatesRoot}: ${availableTemplates.join(', ')}`));
+      } else {
+        console.log(chalk.gray(`Templates directory doesn't exist at: ${templatesRoot}`));
+      }
+      
       console.log(chalk.gray('Available pipes: pumpfun-tokens'));
       // console.log(chalk.gray('Available pipes: solana-swaps, pumpfun-tokens, pumpfun-swaps, metaplex-tokens'));
       console.log(chalk.gray('Run: sqd-pipes-test list'));
@@ -49,7 +95,8 @@ export async function addPipe(pipeName: string) {
 }
 
 async function updateDependencies(pipeName: string, projectDir: string) {
-  const depsPath = path.join(__dirname, '../../templates', pipeName, 'dependencies.json');
+  const packageRoot = findPackageRoot();
+  const depsPath = path.join(packageRoot, 'templates', pipeName, 'dependencies.json');
   
   if (!fs.existsSync(depsPath)) return;
   

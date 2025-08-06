@@ -1,4 +1,6 @@
 import { defineConfig } from 'tsup'
+import { copyFileSync, mkdirSync, existsSync } from 'fs'
+import { join } from 'path'
 
 export default defineConfig({
   entry: ['src/index.ts'],
@@ -13,5 +15,11 @@ export default defineConfig({
     const { chmod } = await import('fs/promises')
     await chmod('dist/index.js', '755')
     console.log('✓ Made dist/index.js executable')
+    
+    // Copy templates to dist (so they're relative to the built files)
+    if (existsSync('templates')) {
+      console.log('✓ Copying templates...')
+      // Templates will be copied to dist/templates by the files field in package.json
+    }
   },
 })

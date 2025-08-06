@@ -7,10 +7,7 @@
     "password": ""
   },
   "pipes": {
-    "pumpfun.token-creation": {
-      "fromBlock": 332557468
-    },
-    "pumpfun.bonding-curve-swaps": {
+    "pumpfun-tokens": {
       "fromBlock": 332557468
     }
   }
