@@ -37,7 +37,11 @@ async function main() {
   //   portalUrl
   // }
 
-  // Run the pumpfun-tokens indexer
-  // await retry(() => pumpfunTokenCreationIndexer(pumpfunPipeConfig))
+  // Array of pipes to run
+  const pipes = [
+    // () => pumpfunTokenCreationIndexer(pumpfunPipeConfig),
+    // Add more pipes here as needed
+    // () => anotherPipeIndexer(anotherPipeConfig),
+  ]
 }
 void main()

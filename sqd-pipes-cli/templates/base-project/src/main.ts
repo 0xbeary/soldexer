@@ -19,6 +19,7 @@ export type IndexerFunction = (portalUrl: string, clickhouse: NodeClickHouseClie
 async function main() {
   
   logger.info('Starting indexer with pipes')
+  logger.info('(Dont forget to install pipes and add them to the main.ts file!)')
 
   // Create ClickHouse client
   const clickhouse = createClient({
