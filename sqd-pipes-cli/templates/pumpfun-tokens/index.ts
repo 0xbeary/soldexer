@@ -1,12 +1,9 @@
 import path from 'path';
 import { ClickHouseClient } from '@clickhouse/client';
 import { ClickhouseState } from '@sqd-pipes/core';
-import { SolanaPumpfunTokensStream, PumpfunTokenCreation } from './stream.js';
-import { logger } from './utils/logger.js';
-import { ensureTables } from './utils/database.js';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { SolanaPumpfunTokensStream, PumpfunTokenCreation } from './stream';
+import { logger } from './utils/logger';
+import { ensureTables } from './utils/database';
 
 export interface PipeConfig {
   fromBlock: number;
@@ -31,7 +28,7 @@ export const pumpfunTokenCreationIndexer = async (
     logger,
   })
 
-  await ensureTables(clickhouse, path.join(__dirname, 'sql/schema.sql'))
+  await ensureTables(clickhouse, path.join(__dirname, './sql/schema.sql'))
 
   for await (const tokens of await ds.stream()) {
     await clickhouse.insert({
@@ -45,7 +42,6 @@ export const pumpfunTokenCreationIndexer = async (
         creation_time: t.deployTime,
       })),
     })
-
     await ds.ack()
   }
 }

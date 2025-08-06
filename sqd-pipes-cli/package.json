@@ -1,6 +1,6 @@
 {
   "name": "sqd-pipes-test",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "type": "module",
   "bin": {
     "sqd-pipes-test": "./dist/index.js"
