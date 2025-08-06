@@ -1,37 +1,37 @@
 import path from 'path';
 import { ClickHouseClient } from '@clickhouse/client';
 import { ClickhouseState } from '@sqd-pipes/core';
-import { SolanaPumpfunTokensStream, PumpfunTokenCreation } from './stream';
+import { SolanaPumpfunTokensStream, PumpfunTokenCreation } from './streams/pumpfunTokenStream';
 import { logger } from './utils/logger';
 import { ensureTables } from './utils/database';
 
 export interface PipeConfig {
   fromBlock: number;
   toBlock?: number;
+  clickhouse: ClickHouseClient;
+  portalUrl: string;
 }
 
 export const pumpfunTokenCreationIndexer = async (
-  portalUrl: string,
-  clickhouse: ClickHouseClient,
   config: PipeConfig,
 ) => {
   const ds = new SolanaPumpfunTokensStream({
-    portal: `${portalUrl}/datasets/solana-mainnet`,
+    portal: `${config.portalUrl}/datasets/solana-mainnet`,
     blockRange: {
       from: config.fromBlock,
       to: config.toBlock,
     },
-    state: new ClickhouseState(clickhouse, {
+    state: new ClickhouseState(config.clickhouse, {
       table: 'solana_sync_status',
       id: 'solana_pumpfun_token_creation',
     }),
     logger,
   })
 
-  await ensureTables(clickhouse, path.join(__dirname, './sql/schema.sql'))
+  await ensureTables(config.clickhouse, path.join(__dirname, './sql/schema.sql'))
 
   for await (const tokens of await ds.stream()) {
-    await clickhouse.insert({
+    await config.clickhouse.insert({
       table: 'solana_pumpfun_tokens',
       format: 'JSONEachRow',
       values: tokens.map((t) => ({

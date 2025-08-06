@@ -1,6 +1,6 @@
 import { PortalAbstractStream } from '@sqd-pipes/core'
 import { getInstructionDescriptor } from '@subsquid/solana-stream'
-import * as pumpfun from './abi/pumpfun'
+import * as pumpfun from '../abi/pumpfun'
 
 export interface PumpfunTokenCreation {
   name: string

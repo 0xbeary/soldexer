@@ -1,77 +1,52 @@
-import fs from 'node:fs'
-import path from 'node:path'
 import { NodeClickHouseClient } from '@clickhouse/client/dist/client'
-import { createClickhouseClient } from './db/clickhouse'
-import { metaplexIndexer } from './indexers/metaplex'
-// import { pumpfunBondingCurveSwapsIndexer, pumpfunTokenCreationIndexer } from './indexers/pumpfun'
+import { ClickHouseClient, createClient } from '@clickhouse/client'
 import { pumpfunTokenCreationIndexer } from './pipes/pumpfun-tokens'
-import { swapsIndexer } from './indexers/swaps'
-import { logger } from './utils'
+import { logger } from './utils/logger'
 import { retry } from './utils/retry'
 
-type Pipes = 'swaps' | 'metaplex' | 'pumpfun-tokens' //| 'pumpfun.token-creation' | 'pumpfun.bonding-curve-swaps'
-
 export interface PipeConfig {
-  fromBlock: number
-  toBlock?: number
+  fromBlock: number;
+  toBlock?: number;
+  clickhouse: ClickHouseClient;
+  portalUrl: string;
 }
 
-export interface ClickhouseConfig {
-  database: string
-  url: string
-  username: string
-  password: string
-}
+// Configuration - no external config file needed
+const portalUrl = 'https://portal.sqd.dev'
 
-export interface SoldexerConfig {
-  portalUrl: string
-  pipes: Record<Pipes, PipeConfig>
-  clickhouse?: ClickhouseConfig
+const clickhouseConfig = {
+  url: 'http://localhost:8123',
+  database: 'default',
+  username: 'default',
+  password: ''
 }
+  
 
 export type IndexerFunction = (portalUrl: string, clickhouse: NodeClickHouseClient, config: PipeConfig) => Promise<void>
 
-const indexersMap: Record<Pipes, IndexerFunction> = {
-  swaps: swapsIndexer,
-  metaplex: metaplexIndexer,
-  'pumpfun-tokens': pumpfunTokenCreationIndexer,
-  // 'pumpfun.token-creation': pumpfunTokenCreationIndexer,
-  // 'pumpfun.bonding-curve-swaps': pumpfunBondingCurveSwapsIndexer,
-}
-
 async function main() {
-  const configPath = path.join(__dirname, '../soldexer.json')
-  const rawConfig = fs.readFileSync(configPath, 'utf-8')
-  const config: SoldexerConfig = JSON.parse(rawConfig)
-  const pipes: Pipes[] = Object.keys(config.pipes) as Pipes[]
-
-  if (pipes.length === 0) {
-    logger.error('No pipes configured in config.json')
-    process.exit(1)
+  
+  const pumpfunPipeConfig: PipeConfig = {
+    fromBlock: 332557468,
+    clickhouse:  clickhouseConfig,
+    portalUrl
   }
 
-  logger.info(`Starting Soldexer with pipes: ${pipes.join(', ')}`)
+  logger.info('Starting Soldexer with pumpfun-tokens pipe')
 
-  const clickhouse = createClickhouseClient({
-    url: config.clickhouse?.url || 'http://localhost:8123',
-    database: config.clickhouse?.database || 'default',
-    username: config.clickhouse?.username || 'default',
-    password: config.clickhouse?.password || '',
+  // Create ClickHouse client
+  const clickhouse = createClient({
+    url: clickhouseConfig.url,
+    database: clickhouseConfig.database,
+    username: clickhouseConfig.username,
+    password: clickhouseConfig.password,
+    clickhouse_settings: {
+      date_time_input_format: 'best_effort',
+    },
   })
 
-  await Promise.all(
-    pipes.map(async (pipe) => {
-      const pipeConfig = config.pipes[pipe]
-      const portalUrl = config.portalUrl || 'https://portal.sqd.dev'
-
-      if (!indexersMap[pipe]) {
-        logger.error(`No indexer found for pipe: ${pipe}`)
-        return
-      }
-
-      await retry(() => indexersMap[pipe](portalUrl, clickhouse, pipeConfig))
-    }),
-  )
+  // Run the pumpfun-tokens indexer
+  await retry(() => pumpfunTokenCreationIndexer(portalUrl, clickhouse, pipeConfig))
 }
 
 void main()
