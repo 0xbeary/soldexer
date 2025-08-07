@@ -55,6 +55,36 @@ AS SELECT
 FROM solana_pumpfun_tokens
 GROUP BY hour;
 
+-- Minute-level stats for ultra real-time SSE streams
+CREATE MATERIALIZED VIEW IF NOT EXISTS pumpfun_minute_stats
+ENGINE = SummingMergeTree()
+PARTITION BY toYYYYMM(minute)
+ORDER BY minute
+POPULATE
+AS SELECT
+    toStartOfMinute(creation_time) as minute,
+    count() as tokens_created,
+    uniq(symbol) as unique_symbols,
+    avg(length(name)) as avg_name_length,
+    min(creation_time) as first_token_time,
+    max(creation_time) as last_token_time
+FROM solana_pumpfun_tokens
+GROUP BY minute;
+
+-- Token velocity (5-minute windows for real-time rate monitoring)
+CREATE MATERIALIZED VIEW IF NOT EXISTS pumpfun_velocity_stats
+ENGINE = SummingMergeTree()
+PARTITION BY toYYYYMM(window_start)
+ORDER BY window_start
+POPULATE
+AS SELECT
+    toStartOfFiveMinute(creation_time) as window_start,
+    count() as tokens_in_window,
+    count() / 300.0 as tokens_per_second,
+    uniq(symbol) as unique_symbols_in_window
+FROM solana_pumpfun_tokens
+GROUP BY window_start;
+
 -- Top symbols by creation frequency (rolling 24h)
 CREATE MATERIALIZED VIEW IF NOT EXISTS pumpfun_trending_symbols
 ENGINE = ReplacingMergeTree()

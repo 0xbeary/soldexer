@@ -72,6 +72,203 @@ app.get('/schema/status', async (c) => {
 });
 
 // =============================================================================
+// REAL-TIME SSE ENDPOINTS
+// =============================================================================
+
+// Real-time token feed via SSE
+app.get('/tokens/stream', async (c) => {
+  return c.newResponse(
+    new ReadableStream({
+      start(controller) {
+        const encoder = new TextEncoder();
+        
+        // Send initial connection message
+        controller.enqueue(encoder.encode('data: {"type":"connected","message":"Real-time token stream started"}\n\n'));
+        
+        let lastCheck = new Date();
+        
+        const poll = async () => {
+          try {
+            // Query for tokens created since last check
+            const result = await clickhouse.query({
+              query: `
+                SELECT name, symbol, address, metadata_uri, creation_time
+                FROM solana_pumpfun_tokens
+                WHERE creation_time > '${lastCheck.toISOString()}'
+                ORDER BY creation_time DESC
+                LIMIT 50
+              `,
+              format: 'JSONEachRow'
+            });
+            
+            const newTokens = await result.json();
+            
+            if (newTokens.length > 0) {
+              // Send new tokens
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                type: 'tokens',
+                data: newTokens,
+                timestamp: new Date().toISOString()
+              })}\n\n`));
+              
+              lastCheck = new Date();
+            }
+            
+            // Also send live stats every 5 seconds
+            const statsResult = await clickhouse.query({
+              query: `
+                SELECT 
+                  hour,
+                  tokens_created,
+                  unique_symbols,
+                  avg_name_length
+                FROM pumpfun_hourly_stats
+                WHERE hour >= now() - INTERVAL 1 HOUR
+                ORDER BY hour DESC
+                LIMIT 1
+              `,
+              format: 'JSONEachRow'
+            });
+            
+            const currentStats = await statsResult.json();
+            if (currentStats.length > 0) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                type: 'stats',
+                data: currentStats[0],
+                timestamp: new Date().toISOString()
+              })}\n\n`));
+            }
+            
+          } catch (error) {
+            logger.error('SSE polling error:', error);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              type: 'error',
+              message: error.message,
+              timestamp: new Date().toISOString()
+            })}\n\n`));
+          }
+        };
+        
+        // Poll every 2 seconds
+        const interval = setInterval(poll, 2000);
+        
+        // Initial poll
+        poll();
+        
+        // Cleanup on close
+        return () => {
+          clearInterval(interval);
+        };
+      }
+    }),
+    {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Cache-Control',
+      },
+    }
+  );
+});
+
+// Real-time stats dashboard stream
+app.get('/stats/stream', async (c) => {
+  return c.newResponse(
+    new ReadableStream({
+      start(controller) {
+        const encoder = new TextEncoder();
+        
+        controller.enqueue(encoder.encode('data: {"type":"connected","message":"Real-time stats stream started"}\n\n'));
+        
+        const sendStats = async () => {
+          try {
+            // Get latest hourly stats
+            const hourlyResult = await clickhouse.query({
+              query: `
+                SELECT hour, tokens_created, unique_symbols, avg_name_length
+                FROM pumpfun_hourly_stats
+                WHERE hour >= now() - INTERVAL 24 HOUR
+                ORDER BY hour DESC
+              `,
+              format: 'JSONEachRow'
+            });
+            
+            // Get daily stats
+            const dailyResult = await clickhouse.query({
+              query: `
+                SELECT date, tokens_created, unique_symbols, first_letter_diversity
+                FROM pumpfun_daily_stats
+                WHERE date >= today() - INTERVAL 7 DAY
+                ORDER BY date DESC
+              `,
+              format: 'JSONEachRow'
+            });
+            
+            // Get live totals
+            const totalsResult = await clickhouse.query({
+              query: `
+                SELECT 
+                  count() as total_tokens,
+                  uniq(symbol) as unique_symbols,
+                  max(creation_time) as latest_token_time,
+                  countIf(creation_time >= now() - INTERVAL 1 HOUR) as tokens_last_hour
+                FROM solana_pumpfun_tokens
+              `,
+              format: 'JSONEachRow'
+            });
+            
+            const [hourlyStats, dailyStats, totals] = await Promise.all([
+              hourlyResult.json(),
+              dailyResult.json(),
+              totalsResult.json()
+            ]);
+            
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              type: 'dashboard',
+              data: {
+                hourly: hourlyStats,
+                daily: dailyStats,
+                totals: totals[0] || {},
+                timestamp: new Date().toISOString()
+              }
+            })}\n\n`));
+            
+          } catch (error) {
+            logger.error('Stats SSE error:', error);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              type: 'error',
+              message: error.message,
+              timestamp: new Date().toISOString()
+            })}\n\n`));
+          }
+        };
+        
+        // Send stats every 5 seconds
+        const interval = setInterval(sendStats, 5000);
+        
+        // Initial send
+        sendStats();
+        
+        return () => {
+          clearInterval(interval);
+        };
+      }
+    }),
+    {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Cache-Control',
+      },
+    }
+  );
+});
+
+// =============================================================================
 // PUMPFUN TOKEN ENDPOINTS
 // =============================================================================
 
@@ -190,10 +387,33 @@ app.get('/', (c) => {
     version: '1.0.0',
     endpoints: {
       schema: ['/schema/sync', '/schema/status'],
+      realtime: ['/tokens/stream', '/stats/stream'],
       tokens: ['/tokens/latest', '/tokens/stats/daily', '/tokens/stats/hourly', '/tokens/search'],
-      health: '/health'
+      health: '/health',
+      dashboard: '/dashboard'
     }
   });
+});
+
+// Serve dashboard
+app.get('/dashboard', async (c) => {
+  try {
+    const fs = await import('fs/promises');
+    const html = await fs.readFile(path.join(__dirname, '../public/dashboard.html'), 'utf-8');
+    return c.html(html);
+  } catch (error) {
+    return c.html(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Dashboard Unavailable</title></head>
+      <body>
+        <h1>Dashboard Unavailable</h1>
+        <p>The dashboard file could not be loaded. Make sure public/dashboard.html exists.</p>
+        <p><a href="/">← Back to API</a></p>
+      </body>
+      </html>
+    `);
+  }
 });
 
 async function startServer() {

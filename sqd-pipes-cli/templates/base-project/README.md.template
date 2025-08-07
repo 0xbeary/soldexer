@@ -58,6 +58,10 @@ curl -X POST http://localhost:3001/schema/sync
 
 ## 🔌 API Endpoints
 
+### Real-time SSE Streams (Server-Sent Events)
+- `GET /tokens/stream` - Real-time token creation feed
+- `GET /stats/stream` - Live dashboard statistics
+
 ### Schema Management
 - `POST /schema/sync` - Sync schema.sql to database
 - `GET /schema/status` - Check materialized views status
