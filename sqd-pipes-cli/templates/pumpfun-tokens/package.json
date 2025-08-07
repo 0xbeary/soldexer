@@ -1,0 +1,35 @@
+{
+  "name": "pumpfun-tokens-pipe",
+  "version": "1.0.0",
+  "description": "Solana PumpFun token creation indexer pipe",
+  "main": "index.ts",
+  "scripts": {
+    "start": "ts-node index.ts",
+    "dev": "ts-node --watch index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "solana",
+    "pumpfun",
+    "indexer",
+    "clickhouse",
+    "crypto"
+  ],
+  "dependencies": {
+    "@clickhouse/client": "^1.10.1",
+    "@sqd-pipes/core": "0.0.1-alpha.2",
+    "@subsquid/borsh": "^0.3.0",
+    "@subsquid/solana-stream": "1.0.0-portal-api.da1f68",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

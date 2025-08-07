@@ -1,40 +1,85 @@
-# {{projectName}}
+# ClickHouse API Server & Schema Management
 
-A Solana indexer project created with sqd-pipes-test.
+This is a Hono-based API server that provides:
 
-## Quick Start
+1. **REST API** for frontend apps to query ClickHouse data
+2. **Schema Management** for materialized views and cross-pipe analytics
+3. **Real-time Endpoints** optimized for frontend consumption
 
-1. Start ClickHouse:
-   ```bash
-   docker-compose up -d
-   ```
+## 🚀 Quick Start
 
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+```bash
+# Install dependencies
+pnpm install
 
-3. Add pipes:
-   ```bash
-   sqd-pipes-test add pumpfun-tokens
-   ```
+# Set environment variables
+export CLICKHOUSE_URL=http://localhost:8123
+export CLICKHOUSE_DB=default
 
-4. Run the indexer:
-   ```bash
-   npm start
-   ```
+# Start the API server (includes automatic schema sync)
+pnpm start
 
-## Development
+# Or run in development mode with auto-reload
+pnpm run dev
+```
 
-- `npm run dev` - Run in watch mode
-- `npm run build` - Build TypeScript
-- `sqd-pipes-test list` - See available pipes
-- `sqd-pipes-test add <pipe-name>` - Add a new pipe
+The server will start on `http://localhost:3001` by default.
 
-## Environment Variables
+## 📋 Schema Management
 
-Copy `.env.example` to `.env` and configure:
+### Adding New Materialized Views
 
-- `CLICKHOUSE_URL` - ClickHouse server URL
-- `CLICKHOUSE_DB` - Database name
-- `LOG_LEVEL` - Logging level (info, debug, etc.)
+1. **Edit `schema.sql`** - Add your materialized view:
+
+```sql
+-- Example: Token creation trends
+CREATE MATERIALIZED VIEW IF NOT EXISTS token_trends_hourly
+ENGINE = SummingMergeTree()
+PARTITION BY toYYYYMM(hour)
+ORDER BY hour
+POPULATE
+AS SELECT
+    toStartOfHour(creation_time) as hour,
+    count() as tokens_created,
+    uniq(symbol) as unique_symbols
+FROM solana_pumpfun_tokens
+GROUP BY hour;
+```
+
+2. **Sync to Database**:
+
+```bash
+# Sync schema changes
+pnpm run schema:sync
+
+# Or via API endpoint
+curl -X POST http://localhost:3001/schema/sync
+```
+
+## 🔌 API Endpoints
+
+### Schema Management
+- `POST /schema/sync` - Sync schema.sql to database
+- `GET /schema/status` - Check materialized views status
+
+### Token Data
+- `GET /tokens/latest?limit=20&offset=0` - Latest tokens
+- `GET /tokens/stats/daily?days=30` - Daily statistics
+- `GET /tokens/stats/hourly?hours=24` - Hourly statistics  
+- `GET /tokens/search?q=pump&limit=10` - Search tokens
+
+### Health & Info
+- `GET /health` - Health check
+- `GET /` - API documentation
+
+## 🏗️ Architecture
+
+```
+Frontend Apps ────► Hono API Server ────► ClickHouse
+                         │                    │
+                    Schema Sync          Materialized Views
+                     (schema.sql)        (Real-time Analytics)
+                         
+Independent Pipes ──────────────────────► ClickHouse
+                                          (Base Tables)
+```

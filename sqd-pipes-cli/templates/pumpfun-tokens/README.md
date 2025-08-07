@@ -9,30 +9,62 @@ This pipe indexes PumpFun token creation events from the Solana blockchain and s
 - Stores data in ClickHouse with proper partitioning
 - Creates materialized views for analytics
 
+## Installation
+
+This pipe is completely self-contained and can be run standalone:
+
+```bash
+# Install dependencies
+pnpm install
+
+# Or if you prefer npm/yarn
+npm install
+yarn install
+```
+
 ## Usage
 
+### As a standalone pipe
+```bash
+# Set environment variables
+export CLICKHOUSE_URL=http://localhost:8123
+export CLICKHOUSE_DB=default
+export FROM_BLOCK=332557468
+export PORTAL_URL=https://portal.sqd.dev
+
+# Run the pipe
+pnpm start
+# or for development with auto-reload
+pnpm run dev
+```
+
+### In your main application
 ```typescript
-import { createClient } from '@clickhouse/client';
-import { PumpfunTokensPipe } from './pipes/pumpfun-tokens/index.js';
+// Since main() is not exported, you'll need to run as a separate process
+import { spawn } from 'child_process';
 
-const clickhouse = createClient({
-  url: 'http://localhost:8123',
-  database: 'default'
-});
-
-const pipe = new PumpfunTokensPipe(clickhouse, {
-  fromBlock: 332557468,
-  portalUrl: 'https://portal.sqd.dev'
-});
-
-await pipe.start();
+async function runPipes() {
+  // Run pipes as separate processes for true autonomy
+  const pumpfunProcess = spawn('npm', ['start'], {
+    cwd: './pipes/pumpfun-tokens',
+    stdio: 'inherit'
+  });
+  
+  // Or include the pipe logic directly if you need integration
+  // (you'd need to export main() function for this approach)
+}
 ```
 
 ## Configuration
 
-- `fromBlock`: Starting block number
-- `toBlock`: (optional) Ending block number
-- `portalUrl`: (optional) Portal URL, defaults to https://portal.sqd.dev
+Environment variables:
+- `FROM_BLOCK`: Starting block number (default: 332557468)
+- `TO_BLOCK`: (optional) Ending block number
+- `PORTAL_URL`: Portal URL (default: https://portal.sqd.dev)
+- `CLICKHOUSE_URL`: ClickHouse URL (default: http://localhost:8123)
+- `CLICKHOUSE_DB`: ClickHouse database (default: default)
+- `CLICKHOUSE_USER`: ClickHouse username (default: default)
+- `CLICKHOUSE_PASSWORD`: ClickHouse password (default: empty)
 
 ## Database Tables
 
