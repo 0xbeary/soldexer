@@ -5,9 +5,17 @@ import { SolanaPumpfunTokensStream } from './streams/pumpfunTokenStream';
 import { logger } from './utils/logger';
 import { ensureTables } from './utils/database';
 
-export interface PipeConfig {
+export interface BlockRange {
   fromBlock: number;
   toBlock?: number;
+}
+
+export const defaults: BlockRange = {
+  fromBlock: 332557468
+}
+
+export interface PipeConfig {
+  range: BlockRange;
   clickhouse: ClickHouseClient;
   portalUrl: string;
 }
@@ -18,8 +26,8 @@ export const pumpfunTokenCreationIndexer = async (
   const ds = new SolanaPumpfunTokensStream({
     portal: `${config.portalUrl}/datasets/solana-mainnet`,
     blockRange: {
-      from: config.fromBlock,
-      to: config.toBlock,
+      from: config.range.fromBlock,
+      to: config.range.toBlock,
     },
     state: new ClickhouseState(config.clickhouse, {
       table: 'solana_sync_status',

@@ -4,22 +4,14 @@ import { ClickHouseClient, createClient } from '@clickhouse/client'
 import { logger } from './utils/logger'
 import { retry } from './utils/retry'
 
-export interface PipeConfig {
-  fromBlock: number;
-  toBlock?: number;
-  clickhouse: ClickHouseClient;
-  portalUrl: string;
-}
-
-// Configuration - no external config file needed
-const portalUrl = 'https://portal.sqd.dev'
-
-export type IndexerFunction = (portalUrl: string, clickhouse: NodeClickHouseClient, config: PipeConfig) => Promise<void>
-
 async function main() {
   
   logger.info('Starting indexer with pipes')
   logger.info('(Dont forget to install pipes and add them to the main.ts file!)')
+
+
+  // Configuration
+  const portalUrl = 'https://portal.sqd.dev'
 
   // Create ClickHouse client
   const clickhouse = createClient({
@@ -32,15 +24,20 @@ async function main() {
     },
   })
 
-  // Example pipe configuration
-  // const pumpfunPipeConfig: PipeConfig = {
-  //   fromBlock: 332557468,
-  //   clickhouse: clickhouse,
-  //   portalUrl
-  // }
 
   // Run your pipes here
-  // await retry(() => pumpfunTokenCreationIndexer(pumpfunPipeConfig))
+  // await Promise.all([
+  //   retry(() => pumpfunTokenCreationIndexer({
+  //     fromBlock: pumpfunTokenCreationIndexer.defaults.fromBlock,
+  //     clickhouse: clickhouse,
+  //     portalUrl
+  // })),
+  //   retry(() => anotherPipeIndexer({
+  //     fromBlock: 400000000,
+  //     clickhouse: clickhouse,
+  //     portalUrl
+  // }))
+// ])
 }
 
 void main()
