@@ -5,14 +5,14 @@ import path from 'path';
 import fs from 'fs-extra';
 
 /**
- * Migration Script
+ * View Sync Script
  * 
- * Run this script to apply database migrations
+ * Run this script to sync all view types from .sql files in the views/ folder
+ * Supports: Regular Views, Materialized Views, Live Views, Window Views
  * 
  * Usage:
- *   pnpm run migrate
- *   pnpm run migrate:rollback
- *   ts-node sql/scripts/migrate.ts
+ *   pnpm run sync
+ *   ts-node sql/scripts/sync.ts
  * 
  * Environment Variables:
  *   CLICKHOUSE_URL - ClickHouse server URL
@@ -21,119 +21,114 @@ import fs from 'fs-extra';
  *   CLICKHOUSE_PASSWORD - Password
  */
 
-interface Migration {
-  id: string;
-  name: string;
-  filename: string;
-  up: string;
-  down: string;
-}
-
-interface MigrationRecord {
-  id: string;
-  name: string;
-  applied_at: string;
-}
-
 async function main() {
-  const command = process.argv[2];
-  
-  if (command === 'rollback') {
-    await rollbackLastMigration();
-  } else {
-    await runMigrations();
-  }
-}
-
-async function runMigrations() {
-  logger.info('Starting database migrations...');
+  logger.info('Syncing all view types...');
   
   const clickhouse = await createConnection();
   
   try {
-    // Ensure migration tracking table exists
-    await ensureMigrationsTable(clickhouse);
+    // Find all .sql files in views/ folder
+    const sqlFiles = await findSqlFiles();
     
-    // Load migration files
-    const migrations = await loadMigrations();
-    const appliedMigrations = await getAppliedMigrations(clickhouse);
-    
-    // Find pending migrations
-    const pendingMigrations = migrations.filter(m => 
-      !appliedMigrations.some(am => am.id === m.id)
-    );
-    
-    if (pendingMigrations.length === 0) {
-      logger.info('No pending migrations');
+    if (sqlFiles.length === 0) {
+      logger.info('No .sql files found in views/ folder');
+      await createExampleFiles();
       return;
     }
     
-    logger.info(`Found ${pendingMigrations.length} pending migrations:`);
-    pendingMigrations.forEach(m => {
-      logger.info(`  ${m.id} - ${m.name}`);
-    });
+    logger.info(`Found ${sqlFiles.length} SQL files to sync`);
     
-    // Apply migrations
-    for (const migration of pendingMigrations) {
-      logger.info(`Applying migration ${migration.id} - ${migration.name}...`);
-      
-      try {
-        await clickhouse.exec({ query: migration.up });
-        await recordMigration(clickhouse, migration);
-        logger.info(`✓ Applied ${migration.id}`);
-      } catch (error) {
-        logger.error(`✗ Failed to apply ${migration.id}:`, error);
-        process.exit(1);
-      }
+    // Process each file
+    for (const file of sqlFiles) {
+      await processSqlFile(clickhouse, file);
     }
     
-    logger.info('All migrations applied successfully');
+    logger.info('Sync completed successfully');
     
   } catch (error) {
-    logger.error('Migration failed:', error);
+    logger.error('Sync failed:', error);
     process.exit(1);
   }
 }
 
-async function rollbackLastMigration() {
-  logger.info('Rolling back last migration...');
+async function processSqlFile(clickhouse: any, filePath: string) {
+  const filename = path.basename(filePath);
+  logger.info(`Processing ${filename}...`);
   
-  const clickhouse = await createConnection();
+  const content = await fs.readFile(filePath, 'utf8');
   
-  try {
-    await ensureMigrationsTable(clickhouse);
-    
-    const appliedMigrations = await getAppliedMigrations(clickhouse);
-    
-    if (appliedMigrations.length === 0) {
-      logger.info('No migrations to rollback');
-      return;
-    }
-    
-    // Get the last applied migration
-    const lastMigration = appliedMigrations[appliedMigrations.length - 1];
-    const migrations = await loadMigrations();
-    const migrationToRollback = migrations.find(m => m.id === lastMigration.id);
-    
-    if (!migrationToRollback) {
-      logger.error(`Migration file not found for ${lastMigration.id}`);
-      process.exit(1);
-    }
-    
-    logger.info(`Rolling back ${migrationToRollback.id} - ${migrationToRollback.name}...`);
+  // First, extract all view names and drop them
+  await dropExistingViews(clickhouse, content);
+  
+  // Then execute all statements
+  const statements = content
+    .split(';')
+    .map(s => s.trim())
+    .filter(s => s.length > 0 && !s.startsWith('--'));
+  
+  for (const statement of statements) {
+    if (statement.trim().length === 0) continue;
     
     try {
-      await clickhouse.exec({ query: migrationToRollback.down });
-      await removeMigrationRecord(clickhouse, migrationToRollback.id);
-      logger.info(`✓ Rolled back ${migrationToRollback.id}`);
+      await clickhouse.exec({ query: statement });
     } catch (error) {
-      logger.error(`✗ Failed to rollback ${migrationToRollback.id}:`, error);
-      process.exit(1);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`Statement in ${filename} failed:`, errorMessage);
+      logger.error(`Statement was: ${statement.substring(0, 100)}...`);
+      throw error; // Stop on errors since we're doing clean recreates
     }
-    
-  } catch (error) {
-    logger.error('Rollback failed:', error);
-    process.exit(1);
+  }
+  
+  logger.info(`✓ Processed ${filename}`);
+}
+
+async function dropExistingViews(clickhouse: any, content: string) {
+  // Extract all view types from CREATE statements
+  const materializedViewRegex = /CREATE\s+(?:OR\s+REPLACE\s+)?MATERIALIZED\s+VIEW\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/gi;
+  const liveViewRegex = /CREATE\s+(?:OR\s+REPLACE\s+)?LIVE\s+VIEW\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/gi;
+  const windowViewRegex = /CREATE\s+(?:OR\s+REPLACE\s+)?WINDOW\s+VIEW\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/gi;
+  const regularViewRegex = /CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/gi;
+  
+  const viewNames: string[] = [];
+  
+  // Find all view types
+  let match;
+  
+  // Materialized views
+  while ((match = materializedViewRegex.exec(content)) !== null) {
+    viewNames.push(match[1]);
+  }
+  
+  // Live views (experimental)
+  while ((match = liveViewRegex.exec(content)) !== null) {
+    viewNames.push(match[1]);
+  }
+  
+  // Window views (experimental)
+  while ((match = windowViewRegex.exec(content)) !== null) {
+    viewNames.push(match[1]);
+  }
+  
+  // Regular views
+  while ((match = regularViewRegex.exec(content)) !== null) {
+    viewNames.push(match[1]);
+  }
+  
+  // Drop all views (reverse order to handle potential dependencies)
+  for (const viewName of viewNames.reverse()) {
+    try {
+      logger.info(`Dropping existing view: ${viewName}`);
+      await clickhouse.exec({ 
+        query: `DROP VIEW IF EXISTS ${viewName}` 
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.warn(`Failed to drop ${viewName} (might not exist):`, errorMessage);
+    }
+  }
+  
+  if (viewNames.length > 0) {
+    logger.info(`Dropped ${viewNames.length} existing views (all types)`);
   }
 }
 
@@ -155,94 +150,59 @@ async function createConnection() {
   return clickhouse;
 }
 
-async function ensureMigrationsTable(clickhouse: any) {
-  await clickhouse.exec({
-    query: `
-      CREATE TABLE IF NOT EXISTS _migrations (
-        id String,
-        name String,
-        applied_at DateTime DEFAULT now()
-      ) ENGINE = MergeTree()
-      ORDER BY applied_at
-    `
-  });
-}
-
-async function loadMigrations(): Promise<Migration[]> {
-  const migrationsDir = path.join(__dirname, '../migrations');
+async function findSqlFiles(): Promise<string[]> {
+  const viewsDir = path.join(__dirname, '../views');
+  const files: string[] = [];
   
-  if (!await fs.pathExists(migrationsDir)) {
-    logger.info('No migrations directory found, creating example migration...');
-    await createExampleMigration(migrationsDir);
+  // Check if views directory exists
+  if (!await fs.pathExists(viewsDir)) {
+    return [];
   }
   
-  const files = await fs.readdir(migrationsDir);
-  const migrationFiles = files
-    .filter(f => f.endsWith('.sql'))
-    .sort();
+  // Look for .sql files in views directory
+  const entries = await fs.readdir(viewsDir, { withFileTypes: true });
   
-  const migrations: Migration[] = [];
-  
-  for (const filename of migrationFiles) {
-    const filePath = path.join(migrationsDir, filename);
-    const content = await fs.readFile(filePath, 'utf8');
+  for (const entry of entries) {
+    const fullPath = path.join(viewsDir, entry.name);
     
-    // Parse migration file (expects -- UP and -- DOWN sections)
-    const sections = content.split(/^--\s*(UP|DOWN)\s*$/m);
-    
-    if (sections.length < 3) {
-      logger.warn(`Invalid migration format in ${filename}, skipping`);
-      continue;
+    if (entry.isFile() && entry.name.endsWith('.sql')) {
+      files.push(fullPath);
+    } else if (entry.isDirectory()) {
+      // Check subdirectories for .sql files (organized views)
+      const subFiles = await findSqlFilesInDir(fullPath);
+      files.push(...subFiles);
     }
-    
-    const id = filename.replace('.sql', '');
-    const name = extractMigrationName(filename);
-    const up = sections[2].trim();
-    const down = sections[4]?.trim() || '';
-    
-    migrations.push({ id, name, filename, up, down });
   }
   
-  return migrations;
+  return files.sort();
 }
 
-async function getAppliedMigrations(clickhouse: any): Promise<MigrationRecord[]> {
-  const result = await clickhouse.query({
-    query: 'SELECT id, name, applied_at FROM _migrations ORDER BY applied_at',
-    format: 'JSONEachRow'
-  });
+async function findSqlFilesInDir(dir: string): Promise<string[]> {
+  const files: string[] = [];
+  const entries = await fs.readdir(dir, { withFileTypes: true });
   
-  return await result.json();
-}
-
-async function recordMigration(clickhouse: any, migration: Migration) {
-  await clickhouse.exec({
-    query: `
-      INSERT INTO _migrations (id, name) 
-      VALUES ('${migration.id}', '${migration.name}')
-    `
-  });
-}
-
-async function removeMigrationRecord(clickhouse: any, migrationId: string) {
-  await clickhouse.exec({
-    query: `DELETE FROM _migrations WHERE id = '${migrationId}'`
-  });
-}
-
-function extractMigrationName(filename: string): string {
-  // Extract name from filename like "001_create_initial_views.sql"
-  const parts = filename.replace('.sql', '').split('_');
-  return parts.slice(1).join('_').replace(/_/g, ' ');
-}
-
-async function createExampleMigration(migrationsDir: string) {
-  await fs.ensureDir(migrationsDir);
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    
+    if (entry.isFile() && entry.name.endsWith('.sql')) {
+      files.push(fullPath);
+    } else if (entry.isDirectory()) {
+      const subFiles = await findSqlFilesInDir(fullPath);
+      files.push(...subFiles);
+    }
+  }
   
-  const exampleMigration = `-- UP
--- Example: Transaction count per block per hour
--- (Assumes a transactions table exists with block_id and timestamp columns)
-CREATE MATERIALIZED VIEW IF NOT EXISTS transactions_per_block_hourly
+  return files;
+}
+
+async function createExampleFiles() {
+  const viewsDir = path.join(__dirname, '../views');
+  await fs.ensureDir(viewsDir);
+  
+  // Create example materialized view
+  const materializedViewContent = `-- Materialized View Example
+-- Stores aggregated data physically for fast queries
+CREATE MATERIALIZED VIEW transactions_per_block_hourly
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(hour)
 ORDER BY (hour, block_id)
@@ -253,21 +213,64 @@ AS SELECT
     count() as transaction_count
 FROM transactions
 GROUP BY hour, block_id;
-
--- DOWN
-DROP VIEW IF EXISTS transactions_per_block_hourly;
 `;
 
-  await fs.writeFile(
-    path.join(migrationsDir, '001_create_initial_views.sql'),
-    exampleMigration
-  );
+  // Create example regular view
+  const regularViewContent = `-- Regular View Example  
+-- Virtual view that queries data on-demand
+CREATE VIEW latest_transactions
+AS SELECT 
+    block_id,
+    timestamp,
+    hash,
+    amount
+FROM transactions 
+ORDER BY timestamp DESC
+LIMIT 100;
+`;
+
+  // Create example live view (experimental)
+  const liveViewContent = `-- Live View Example (Experimental)
+-- Auto-updates as source data changes
+CREATE LIVE VIEW live_transaction_rate
+AS SELECT 
+    toStartOfMinute(now()) as minute,
+    count() as transactions_last_minute
+FROM transactions 
+WHERE timestamp >= now() - INTERVAL 1 MINUTE;
+`;
+
+  // Create example window view (experimental)  
+  const windowViewContent = `-- Window View Example (Experimental)
+-- Time-based sliding window aggregations
+CREATE WINDOW VIEW hourly_transaction_window
+ENGINE = SummingMergeTree
+ORDER BY (window_start, block_id)
+WATERMARK = ASCENDING
+AS SELECT
+    tumbleStart(wid) as window_start,
+    tumbleEnd(wid) as window_end,
+    block_id,
+    count() as transaction_count
+FROM transactions
+GROUP BY tumble(timestamp, INTERVAL '1' HOUR) as wid, block_id;
+`;
+
+  // Write example files
+  await fs.writeFile(path.join(viewsDir, 'materialized_views.sql'), materializedViewContent);
+  await fs.writeFile(path.join(viewsDir, 'regular_views.sql'), regularViewContent);
+  await fs.writeFile(path.join(viewsDir, 'live_views.sql'), liveViewContent);
+  await fs.writeFile(path.join(viewsDir, 'window_views.sql'), windowViewContent);
   
-  logger.info('Created example migration: 001_create_initial_views.sql');
+  logger.info('Created example view files in views/ directory');
+  logger.info('- materialized_views.sql (stores data)');
+  logger.info('- regular_views.sql (virtual views)');  
+  logger.info('- live_views.sql (experimental - auto-updating)');
+  logger.info('- window_views.sql (experimental - time windows)');
 }
 
-// Run the migration system
+// Run the sync
 main().catch((error) => {
-  logger.error('Migration failed:', error);
+  logger.error('Sync failed:', error);
   process.exit(1);
 });

@@ -2,8 +2,7 @@
   "name": "{{projectName}}",
   "version": "1.0.0",
   "scripts": {
-    "migrate": "ts-node sql/scripts/migrate.ts",
-    "migrate:rollback": "ts-node sql/scripts/migrate.ts rollback",
+    "sync": "ts-node sql/scripts/sync.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit"
   },

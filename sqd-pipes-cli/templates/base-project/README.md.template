@@ -12,21 +12,18 @@ pnpm install
 export CLICKHOUSE_URL=http://localhost:8123
 export CLICKHOUSE_DB=default
 
-# Sync schema to database
-pnpm run migrate
+# Sync views to database
+pnpm run sync
 ```
 
-## Database Migrations
+## View Management
 
 ```bash
-# Apply pending migrations
-pnpm run migrate
-
-# Rollback last migration
-pnpm run migrate:rollback
+# Sync all views to ClickHouse
+pnpm run sync
 ```
 
-This applies database migrations from the `sql/migrations/` directory. Each migration has UP and DOWN sections for applying and rolling back changes.
+This reads all `.sql` files in the `sql/views/` directory and executes them against ClickHouse. Supports all ClickHouse view types: Regular Views, Materialized Views, Live Views (experimental), and Window Views (experimental).
 
 ## Architecture
 
@@ -34,8 +31,8 @@ This applies database migrations from the `sql/migrations/` directory. Each migr
 Independent Pipes ──────────────────────► Base Tables
 (pumpfun-tokens, hono-api, etc)           (Raw Data)
                                            │
-                   Database Migrations ──────► Materialized Views
-                   (sql/migrations/)       (Fast Aggregations)
+                   View Sync ─────────────► All View Types
+                   (sql/views/*.sql)       (Regular, Materialized, Live, Window)
 ```
 
 ## Configuration
@@ -52,26 +49,57 @@ Environment variables:
 
 ## Project Structure
 
-- `sql/migrations/` - Database migration files with UP/DOWN sections
-- `sql/scripts/migrate.ts` - Migration runner script
+- `sql/views/*.sql` - All view types (regular, materialized, live, window)
+- `sql/scripts/sync.ts` - View sync script that handles all view types
 - `src/utils/` - Database utilities and logger
 
-## Creating Migrations
+## View Types Supported
 
-Create a new migration file in `sql/migrations/` with this format:
-
+### 1. **Regular Views** (Virtual)
 ```sql
--- UP
-CREATE MATERIALIZED VIEW my_new_view
-ENGINE = SummingMergeTree()
-ORDER BY date
-AS SELECT ...;
-
--- DOWN
-DROP VIEW IF EXISTS my_new_view;
+CREATE VIEW latest_transactions
+AS SELECT * FROM transactions 
+ORDER BY timestamp DESC LIMIT 100;
 ```
 
-Migration files should be named with a sequential number: `001_initial.sql`, `002_add_views.sql`, etc.
+### 2. **Materialized Views** (Physical Storage)
+```sql
+CREATE MATERIALIZED VIEW daily_stats
+ENGINE = SummingMergeTree()
+ORDER BY date
+POPULATE
+AS SELECT 
+    toDate(timestamp) as date,
+    count() as transactions
+FROM events GROUP BY date;
+```
+
+### 3. **Live Views** (Experimental - Auto-updating)
+```sql
+CREATE LIVE VIEW live_stats
+AS SELECT count() as current_count
+FROM events 
+WHERE timestamp >= now() - INTERVAL 1 HOUR;
+```
+
+### 4. **Window Views** (Experimental - Time Windows)
+```sql
+CREATE WINDOW VIEW sliding_stats
+ENGINE = SummingMergeTree
+ORDER BY window_start
+AS SELECT
+    tumbleStart(wid) as window_start,
+    count() as transaction_count
+FROM events
+GROUP BY tumble(timestamp, INTERVAL '1' HOUR) as wid;
+```
+
+## How It Works
+
+1. Create or edit `.sql` files in the `sql/views/` directory
+2. Run `pnpm run sync`
+3. All views get dropped and recreated with latest definitions
+4. Supports organizing views into separate files or folders
 
 ## Perfect For
 
