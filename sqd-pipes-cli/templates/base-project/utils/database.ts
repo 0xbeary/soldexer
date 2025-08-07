@@ -1,8 +1,14 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import * as process from 'node:process'
-import { ClickHouseClient } from '@clickhouse/client'
-import { logger } from './logger'
+import { ClickHouseClient, createClient } from '@clickhouse/client'
+
+export interface ClickhouseConfig {
+  database: string
+  url: string
+  username: string
+  password: string
+}
 
 export async function loadSqlFiles(directoryOrFile: string): Promise<string[]> {
   let sqlFiles: string[] = []
@@ -24,17 +30,27 @@ export async function ensureTables(clickhouse: ClickHouseClient, dir: string) {
 
   for (const table of tables) {
     try {
-      logger.info(`Executing SQL: ${table.trim().substring(0, 80)}...`)
       await clickhouse.command({ query: table })
     } catch (e: any) {
-      logger.error(`======================`)
-      logger.error(table.trim())
-      logger.error(`======================`)
-      logger.error(`Failed to execute SQL: ${e.message}`)
-      if (!e.message) logger.error(e)
+      console.error(`======================`)
+      console.error(table.trim())
+      console.error(`======================`)
+      console.error(`Failed to create table: ${e.message}`)
+      if (!e.message) console.error(e)
 
-      // Don't exit on schema errors - some views might fail if base tables don't exist yet
-      logger.warn('Continuing with next SQL statement...')
+      process.exit(1)
     }
   }
+}
+
+export function createClickhouseClient(clickhouseConfig?: ClickhouseConfig) {
+  return createClient({
+    url: clickhouseConfig?.url || 'http://localhost:8123',
+    username: clickhouseConfig?.username || 'default',
+    password: clickhouseConfig?.password || '',
+    database: clickhouseConfig?.database || 'default',
+    clickhouse_settings: {
+      date_time_input_format: 'best_effort',
+    },
+  })
 }

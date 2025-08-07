@@ -1,12 +1,8 @@
-# ClickHouse API Server & Schema Management
+# {{projectName}} - ClickHouse Schema Management
 
-This is a Hono-based API server that provides:
+Base project template for managing ClickHouse schemas and materialized views.
 
-1. **REST API** for frontend apps to query ClickHouse data
-2. **Schema Management** for materialized views and cross-pipe analytics
-3. **Real-time Endpoints** optimized for frontend consumption
-
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # Install dependencies
@@ -16,74 +12,72 @@ pnpm install
 export CLICKHOUSE_URL=http://localhost:8123
 export CLICKHOUSE_DB=default
 
-# Start the API server (includes automatic schema sync)
-pnpm start
-
-# Or run in development mode with auto-reload
-pnpm run dev
+# Sync schema to database
+pnpm run migrate
 ```
 
-The server will start on `http://localhost:3001` by default.
-
-## 📋 Schema Management
-
-### Adding New Materialized Views
-
-1. **Edit `schema.sql`** - Add your materialized view:
-
-```sql
--- Example: Token creation trends
-CREATE MATERIALIZED VIEW IF NOT EXISTS token_trends_hourly
-ENGINE = SummingMergeTree()
-PARTITION BY toYYYYMM(hour)
-ORDER BY hour
-POPULATE
-AS SELECT
-    toStartOfHour(creation_time) as hour,
-    count() as tokens_created,
-    uniq(symbol) as unique_symbols
-FROM solana_pumpfun_tokens
-GROUP BY hour;
-```
-
-2. **Sync to Database**:
+## Database Migrations
 
 ```bash
-# Sync schema changes
-pnpm run schema:sync
+# Apply pending migrations
+pnpm run migrate
 
-# Or via API endpoint
-curl -X POST http://localhost:3001/schema/sync
+# Rollback last migration
+pnpm run migrate:rollback
 ```
 
-## 🔌 API Endpoints
+This applies database migrations from the `sql/migrations/` directory. Each migration has UP and DOWN sections for applying and rolling back changes.
 
-### Real-time SSE Streams (Server-Sent Events)
-- `GET /tokens/stream` - Real-time token creation feed
-- `GET /stats/stream` - Live dashboard statistics
-
-### Schema Management
-- `POST /schema/sync` - Sync schema.sql to database
-- `GET /schema/status` - Check materialized views status
-
-### Token Data
-- `GET /tokens/latest?limit=20&offset=0` - Latest tokens
-- `GET /tokens/stats/daily?days=30` - Daily statistics
-- `GET /tokens/stats/hourly?hours=24` - Hourly statistics  
-- `GET /tokens/search?q=pump&limit=10` - Search tokens
-
-### Health & Info
-- `GET /health` - Health check
-- `GET /` - API documentation
-
-## 🏗️ Architecture
+## Architecture
 
 ```
-Frontend Apps ────► Hono API Server ────► ClickHouse
-                         │                    │
-                    Schema Sync          Materialized Views
-                     (schema.sql)        (Real-time Analytics)
-                         
-Independent Pipes ──────────────────────► ClickHouse
-                                          (Base Tables)
+Independent Pipes ──────────────────────► Base Tables
+(pumpfun-tokens, hono-api, etc)           (Raw Data)
+                                           │
+                   Database Migrations ──────► Materialized Views
+                   (sql/migrations/)       (Fast Aggregations)
 ```
+
+## Configuration
+```
+
+## ⚙️ Configuration
+
+Environment variables:
+
+- `CLICKHOUSE_URL` - ClickHouse URL (default: http://localhost:8123)
+- `CLICKHOUSE_DB` - Database name (default: default)
+- `CLICKHOUSE_USER` - Username (default: default)
+- `CLICKHOUSE_PASSWORD` - Password (default: empty)
+
+## Project Structure
+
+- `sql/migrations/` - Database migration files with UP/DOWN sections
+- `sql/scripts/migrate.ts` - Migration runner script
+- `src/utils/` - Database utilities and logger
+
+## Creating Migrations
+
+Create a new migration file in `sql/migrations/` with this format:
+
+```sql
+-- UP
+CREATE MATERIALIZED VIEW my_new_view
+ENGINE = SummingMergeTree()
+ORDER BY date
+AS SELECT ...;
+
+-- DOWN
+DROP VIEW IF EXISTS my_new_view;
+```
+
+Migration files should be named with a sequential number: `001_initial.sql`, `002_add_views.sql`, etc.
+
+## Perfect For
+
+- Cross-pipe materialized views
+- Schema management
+- Data aggregations
+- Analytics queries
+
+Keep this project focused on schema management - use separate pipe modules for data ingestion and APIs!

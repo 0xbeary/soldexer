@@ -1,7 +1,7 @@
 import pino from 'pino'
 
 /**
- * Shared logger instance for schema management
+ * Logger instance for Hono API server
  */
 export const logger = pino({
   level: process.env.LOG_LEVEL || 'info',

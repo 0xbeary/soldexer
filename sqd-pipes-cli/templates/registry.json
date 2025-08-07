@@ -5,6 +5,12 @@
     "category": "token-tracking",
     "dependencies": ["@sqd-pipes/core", "@subsquid/solana-stream"]
   },
+  "hono-api": {
+    "description": "Fast API server with ClickHouse integration",
+    "tags": ["api", "rest", "clickhouse"],
+    "category": "api",
+    "dependencies": ["hono", "@hono/node-server", "@clickhouse/client"]
+  },
   "solana-swaps": {
     "description": "Track DEX swaps across Orca, Raydium, and Meteora",
     "tags": ["solana", "dex", "swaps"],

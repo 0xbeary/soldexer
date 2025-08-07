@@ -1,14 +1,25 @@
 {
-  "name": "{{projectName}}",
+  "name": "hono-api-pipe",
   "version": "1.0.0",
+  "description": "Hono-based API server with SSE for real-time ClickHouse data streaming",
+  "main": "index.ts",
   "scripts": {
-    "migrate": "ts-node sql/scripts/migrate.ts",
-    "migrate:rollback": "ts-node sql/scripts/migrate.ts rollback",
+    "start": "ts-node index.ts",
+    "dev": "ts-node --watch index.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit"
   },
+  "keywords": [
+    "hono",
+    "api",
+    "sse",
+    "clickhouse",
+    "real-time"
+  ],
   "dependencies": {
     "@clickhouse/client": "^1.10.1",
+    "@hono/node-server": "^1.12.2",
+    "hono": "^4.6.3",
     "pino": "^9.6.0",
     "pino-pretty": "^13.0.0"
   },
