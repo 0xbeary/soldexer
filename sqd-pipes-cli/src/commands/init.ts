@@ -18,18 +18,7 @@ export const initCommand = new Command()
         type: 'text',
         name: 'projectName',
         message: 'Project name:',
-        initial: 'my-solana-indexer'
-      },
-      {
-        type: 'multiselect',
-        name: 'pipes',
-        message: 'Select pipes to include:',
-        choices: [
-          { title: 'Solana Swaps', value: 'solana-swaps', description: 'DEX swaps from Orca, Raydium, Meteora' },
-          { title: 'PumpFun Tokens', value: 'pumpfun-tokens', description: 'PumpFun token creation events' },
-          { title: 'PumpFun Swaps', value: 'pumpfun-swaps', description: 'PumpFun bonding curve swaps' },
-          { title: 'Metaplex Tokens', value: 'metaplex-tokens', description: 'Metaplex token metadata' }
-        ]
+        initial: 'pipes-indexer'
       }
     ]);
 
@@ -71,10 +60,10 @@ export const initCommand = new Command()
     console.log(chalk.gray(`  cd ${response.projectName}`));
     console.log(chalk.gray('  docker-compose up -d # Start ClickHouse'));
     
-    // Add selected pipes
-    if (response.pipes && response.pipes.length > 0) {
-      console.log(chalk.gray(`  sqd-pipes-test add ${response.pipes.join(' ')}`));
-    }
+    // // Add selected pipes
+    // if (response.pipes && response.pipes.length > 0) {
+    //   console.log(chalk.gray(`  sqd-pipes-test add ${response.pipes.join(' ')}`));
+    // }
     
     console.log(chalk.gray('  npm start'));
   });
